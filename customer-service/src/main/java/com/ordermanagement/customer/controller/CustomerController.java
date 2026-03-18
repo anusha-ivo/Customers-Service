@@ -3,9 +3,6 @@ package com.ordermanagement.customer.controller;
 import com.ordermanagement.customer.dto.AddressRequest;
 import com.ordermanagement.customer.dto.CustomerRequest;
 import com.ordermanagement.customer.dto.CustomerResponse;
-import com.ordermanagement.customer.exceptions.AddressNotFoundException;
-import com.ordermanagement.customer.exceptions.CustomerNotFound;
-import com.ordermanagement.customer.exceptions.DuplicateResourceException;
 import com.ordermanagement.customer.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -80,7 +77,7 @@ public class CustomerController {
             String conversationId,
             @PathVariable Long customerId,
             @Valid @RequestBody CustomerRequest request)
-            throws CustomerNotFound, DuplicateResourceException {
+             {
 
         CustomerResponse updatedCustomer =
                 customerService.updateCustomer(customerId, request);
@@ -101,7 +98,7 @@ public class CustomerController {
             String conversationId,
             @PathVariable Long customerId,
             @Valid @RequestBody AddressRequest request)
-            throws CustomerNotFound {
+             {
 
         CustomerResponse response =
                 customerService.createAddress(customerId, request);
@@ -123,7 +120,7 @@ public class CustomerController {
             @PathVariable Long customerId,
             @PathVariable Long addressId,
             @Valid @RequestBody AddressRequest request)
-            throws CustomerNotFound, AddressNotFoundException {
+             {
 
         CustomerResponse response =
                 customerService.updateAddress(customerId, addressId, request);
