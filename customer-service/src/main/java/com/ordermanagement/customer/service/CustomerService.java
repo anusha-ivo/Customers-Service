@@ -4,13 +4,11 @@ import com.ordermanagement.customer.dto.AddressRequest;
 import com.ordermanagement.customer.dto.AddressResponse;
 import com.ordermanagement.customer.dto.CustomerRequest;
 import com.ordermanagement.customer.dto.CustomerResponse;
-import com.ordermanagement.customer.exceptions.AddressNotFoundException;
-import com.ordermanagement.customer.exceptions.CustomerNotFound;
-import com.ordermanagement.customer.exceptions.DuplicateResourceException;
-import com.ordermanagement.customer.exceptions.InvalidOperationException;
+import com.ordermanagement.customer.exceptions.CustomerException;
 import com.ordermanagement.customer.repository.AddressRepository;
 import com.ordermanagement.customer.repository.CustomerRepository;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,14 +30,14 @@ public class CustomerService {
     public CustomerResponse createCustomer(CustomerRequest request)  {
 
         if (customerRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("Email already exists");
+            throw new CustomerException("Email already exists", HttpStatus.CONFLICT, "DUPLICATE_EMAIL");
         }
 
         if (customerRepository.existsByPhone(request.getPhone())) {
-            throw new DuplicateResourceException("Phone already exists");
+            throw new CustomerException("Phone already exists", HttpStatus.CONFLICT, "DUPLICATE_PHONE");
         }
         if (request.getAddress() == null || request.getAddress().isEmpty()) {
-            throw new InvalidOperationException("At least one address is required");
+            throw new CustomerException("At least one address is required for a Customer ", HttpStatus.BAD_REQUEST, "ADDRESS_REQUIRED");
         }
         long defaultCount = request.getAddress()
                 .stream()
@@ -47,9 +45,7 @@ public class CustomerService {
                 .count();
 
         if (defaultCount != 1) {
-            throw new InvalidOperationException(
-                    "Exactly one default address required"
-            );
+            throw new CustomerException("Exactly one default address required", HttpStatus.BAD_REQUEST, "INVALID_DEFAULT_ADDRESS");
         }
 
         long customerId = customerRepository.insertCustomer(
@@ -67,7 +63,7 @@ public class CustomerService {
 
     @Transactional
     public CustomerResponse deleteCustomer(long customerId)
-            throws CustomerNotFound {
+            {
 
         validateCustomerExists(customerId);
 
@@ -81,24 +77,36 @@ public class CustomerService {
     @Transactional
     public CustomerResponse updateCustomer(long customerId,
                                            CustomerRequest request)
-            throws CustomerNotFound, DuplicateResourceException {
+            {
 
-        validateCustomerExists(customerId);
+
         CustomerResponse existingCustomer = customerRepository.findById(customerId);
+                if (existingCustomer == null) {
+                    throw new CustomerException(
+                            "Customer not found with id " + customerId,
+                            HttpStatus.NOT_FOUND,
+                            "CUSTOMER_NOT_FOUND"
+                    );
+                }
 
+                String email = request.getEmail().trim().toLowerCase();
         if (!existingCustomer.getEmail().equals(request.getEmail()) &&
                 customerRepository.existsByEmailForOtherCustomer(
                         request.getEmail(), customerId)) {
 
-            throw new DuplicateResourceException("Email already exists");
+            throw new CustomerException("Email already exists", HttpStatus.CONFLICT, "DUPLICATE_EMAIL");
         }
 
-        if (!existingCustomer.getPhone().equals(request.getPhone()) &&
-                customerRepository.existsByPhoneForOtherCustomer(
-                        request.getPhone(), customerId)) {
+                if (!existingCustomer.getEmail().trim().equalsIgnoreCase(request.getEmail().trim()) &&
+                        customerRepository.existsByEmailForOtherCustomer(
+                                request.getEmail().trim(), customerId)) {
 
-            throw new DuplicateResourceException("Phone already exists");
-        }
+                    throw new CustomerException(
+                            "Email already exists",
+                            HttpStatus.CONFLICT,
+                            "DUPLICATE_EMAIL"
+                    );
+                }
 
         customerRepository.updateCustomer(
                 customerId,
@@ -113,7 +121,7 @@ public class CustomerService {
     @Transactional
     public CustomerResponse createAddress(long customerId,
                                           AddressRequest request)
-            throws CustomerNotFound {
+             {
 
         validateCustomerExists(customerId);
 
@@ -130,7 +138,7 @@ public class CustomerService {
     public CustomerResponse updateAddress(long customerId,
                                           long addressId,
                                           AddressRequest request)
-            throws CustomerNotFound, AddressNotFoundException {
+            {
 
         validateCustomerExists(customerId);
         validateAddressExists(customerId, addressId);
@@ -147,7 +155,7 @@ public class CustomerService {
     @Transactional
     public CustomerResponse deleteAddress(long customerId,
                                           long addressId)
-            throws CustomerNotFound, AddressNotFoundException {
+             {
 
         validateCustomerExists(customerId);
         validateAddressExists(customerId, addressId);
@@ -155,8 +163,10 @@ public class CustomerService {
         if (addressRepository.isDefaultAddress(addressId)) {
             long total = addressRepository.countAddresses(customerId);
             if (total <= 1) {
-                throw new InvalidOperationException(
-                        "Cannot delete default address without another default"
+                throw new CustomerException(
+                        "Cannot delete default address without another default",
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_DELETE_DEFAULT_ADDRESS"
                 );
             }
         }
@@ -168,12 +178,19 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerResponse getCustomer(long customerId)
-            throws CustomerNotFound {
+             {
 
-        validateCustomerExists(customerId);
+
 
         CustomerResponse customer = customerRepository.findById(customerId);
 
+                 if (customer == null) {
+                     throw new CustomerException(
+                             "Customer not found with id " + customerId,
+                             HttpStatus.NOT_FOUND,
+                             "CUSTOMER_NOT_FOUND"
+                     );
+                 }
         List<AddressResponse> addresses =
                 addressRepository.findByCustomerId(customerId);
 
@@ -183,19 +200,27 @@ public class CustomerService {
     }
 
     private void validateCustomerExists(long customerId)
-            throws CustomerNotFound {
+            {
 
         if (!customerRepository.existsById(customerId)) {
-            throw new CustomerNotFound(customerId);
+            throw new CustomerException(
+                    "Customer not found with id " + customerId,
+                    HttpStatus.NOT_FOUND,
+                    "CUSTOMER_NOT_FOUND"
+            );
         }
     }
 
     private void validateAddressExists(long customerId,
                                        long addressId)
-            throws AddressNotFoundException {
+             {
 
         if (!addressRepository.existsByIdAndCustomerId(addressId, customerId)) {
-            throw new AddressNotFoundException(addressId);
+            throw new CustomerException(
+                    "Address not found with id " + addressId,
+                    HttpStatus.NOT_FOUND,
+                    "ADDRESS_NOT_FOUND"
+            );
         }
     }
 }

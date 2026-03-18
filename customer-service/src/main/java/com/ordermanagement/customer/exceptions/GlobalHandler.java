@@ -2,6 +2,7 @@ package com.ordermanagement.customer.exceptions;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -24,12 +25,12 @@ public class GlobalHandler {
                 "level", level,
                 "severity", severity,
                 "message", message,
-                "httpStatus", status.toString(),
+                "httpStatus", status.name(),
                 "sourceApplication", SOURCE_APP
         );
     }
-    @ExceptionHandler(AppException.class)
-    public ResponseEntity<?> handleAppException(AppException ex) {
+    @ExceptionHandler(CustomerException.class)
+    public ResponseEntity<?> handleAppException(CustomerException ex) {
 
         HttpStatus status = ex.getStatus();
 
@@ -60,6 +61,23 @@ public class GlobalHandler {
                         "FATAL"
                 ),
                 status
+        );
+    }
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex) {
+
+        String message = ex.getBindingResult()
+                .getFieldError()
+                .getDefaultMessage();
+
+        return ResponseEntity.badRequest().body(
+                buildError(
+                        "VALIDATION_ERROR",
+                        HttpStatus.BAD_REQUEST,
+                        message,
+                        "REQUEST",
+                        "NONFATAL"
+                )
         );
     }
 }

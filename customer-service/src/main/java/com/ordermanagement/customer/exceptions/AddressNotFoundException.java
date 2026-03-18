@@ -2,7 +2,7 @@ package com.ordermanagement.customer.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-public class AddressNotFoundException extends AppException {
+public class AddressNotFoundException extends CustomerException {
 
     public AddressNotFoundException(long id) {
         super(
