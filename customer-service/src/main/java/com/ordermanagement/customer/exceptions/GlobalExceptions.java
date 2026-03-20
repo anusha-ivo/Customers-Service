@@ -14,7 +14,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptions {
 
-        private static final String SOURCE_APP = "AUTH-IRIS";
+        private static final String SOURCE_APP = "CUSTOMER SERVICE";//it can be available in all method
 
         private Map<String, Object> buildError(
                 String label,
@@ -49,17 +49,15 @@ public class GlobalExceptions {
                     status
             );
         }
-
-        @ExceptionHandler(MethodArgumentNotValidException.class)
-        public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex) {
+        @ExceptionHandler(MethodArgumentNotValidException.class)//when field errror happens
+        public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex) {//call this exception
 
             String message = ex.getBindingResult()
-                    .getFieldError()
+                    .getFieldError()//get field
                     .getDefaultMessage();
 
-            return ResponseEntity.badRequest().body(
-                    buildError(
-                            "VALIDATION_ERROR",
+            return ResponseEntity.badRequest().body(//fix to bad request
+                    buildError("VALIDATION_ERROR",
                             HttpStatus.BAD_REQUEST,
                             message,
                             "REQUEST",

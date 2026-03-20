@@ -67,11 +67,11 @@ public class CustomerService {
 
         validateCustomerExists(customerId);
 
-        CustomerResponse response = getCustomer(customerId);
+        CustomerResponse response = getCustomer(customerId);//only one
 
         customerRepository.deleteCustomer(customerId);
 
-        return response;
+        return response;//no content in ,no content or successfulyy dlteddd
     }
 
     @Transactional
@@ -92,7 +92,7 @@ public class CustomerService {
                 String email = request.getEmail().trim().toLowerCase();
         if (!existingCustomer.getEmail().equals(request.getEmail()) &&
                 customerRepository.existsByEmailForOtherCustomer(
-                        request.getEmail(), customerId)) {
+                        request.getEmail(), customerId)) {//dlt this
 
             throw new CustomerException("Email already exists", HttpStatus.CONFLICT, "DUPLICATE_EMAIL");
         }
@@ -131,7 +131,7 @@ public class CustomerService {
 
         addressRepository.insertAddress(customerId, request);
 
-        return getCustomer(customerId);
+        return getCustomer(customerId);//return only address
     }
 
     @Transactional
