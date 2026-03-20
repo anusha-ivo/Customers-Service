@@ -8,6 +8,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.sql.PreparedStatement;
+import java.util.List;
 
 
 @Repository
@@ -99,9 +100,10 @@ public class CustomerRepository {
 
 
     public Customer findById(long customerId) {
-        String  findByIdQuery = sqlQueryProvider.getQuery("customer.findById");
 
-        return jdbcTemplate.queryForObject(
+        String findByIdQuery = sqlQueryProvider.getQuery("customer.findById");
+
+        List<Customer> list = jdbcTemplate.query(
                 findByIdQuery,
                 (rs, rowNum) -> {
 
@@ -111,7 +113,6 @@ public class CustomerRepository {
                     c.setName(rs.getString("name"));
                     c.setEmail(rs.getString("email"));
                     c.setPhone(rs.getString("phone"));
-
 
                     if (rs.getTimestamp("created_at") != null) {
                         c.setCreatedAt(
@@ -129,6 +130,8 @@ public class CustomerRepository {
                 },
                 customerId
         );
+
+        return list.isEmpty() ? null : list.get(0);
     }
 
 }

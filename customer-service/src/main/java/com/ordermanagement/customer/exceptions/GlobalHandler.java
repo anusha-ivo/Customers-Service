@@ -30,8 +30,8 @@ public class GlobalHandler {
                 "sourceApplication", "CUSTOMER_SERVIVE"
         );
     }
-    @ExceptionHandler(AppException.class)
-    public ResponseEntity<?> handleAppException(AppException ex) {
+    @ExceptionHandler(CustomerException.class)
+    public ResponseEntity<?> handleAppException(CustomerException ex) {
 
         HttpStatus status = ex.getStatus();
 
