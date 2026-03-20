@@ -1,8 +1,12 @@
 package com.ordermanagement.customer.controller;
 
 import com.ordermanagement.customer.dto.AddressRequest;
+import com.ordermanagement.customer.dto.AddressResponse;
 import com.ordermanagement.customer.dto.CustomerRequest;
 import com.ordermanagement.customer.dto.CustomerResponse;
+import com.ordermanagement.customer.exceptions.AddressNotFoundException;
+import com.ordermanagement.customer.exceptions.CustomerNotFound;
+import com.ordermanagement.customer.exceptions.DuplicateResourceException;
 import com.ordermanagement.customer.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -51,16 +55,12 @@ public class CustomerController {
             @ApiResponse(responseCode = "404", description = "Customer not found")
     })
     @DeleteMapping("/{customerId}")
-    public ResponseEntity<CustomerResponse> deleteCustomer(
-            @RequestHeader(value = "x-conversation-id", required = false)
-            String conversationId,
-            @PathVariable Long customerId)
-            {
+    public ResponseEntity<Void> deleteCustomer(
+            @RequestHeader(value = "x-conversation-id", required = false) String conversationId,
+            @PathVariable Long customerId) {
 
-        CustomerResponse deletedCustomer =
-                customerService.deleteCustomer(customerId);
-
-        return ResponseEntity.ok(deletedCustomer);
+        customerService.deleteCustomer(customerId);
+        return ResponseEntity.noContent().build();
     }
     @Operation(
             summary = "Update Customer",
@@ -77,7 +77,7 @@ public class CustomerController {
             String conversationId,
             @PathVariable Long customerId,
             @Valid @RequestBody CustomerRequest request)
-             {
+            throws CustomerNotFound, DuplicateResourceException {
 
         CustomerResponse updatedCustomer =
                 customerService.updateCustomer(customerId, request);
@@ -92,19 +92,22 @@ public class CustomerController {
             @ApiResponse(responseCode = "201", description = "Address added"),
             @ApiResponse(responseCode = "404", description = "Customer not found")
     })
+
     @PostMapping("/{customerId}/addresses")
-    public ResponseEntity<CustomerResponse> createAddress(
-            @RequestHeader(value = "x-conversation-id", required = false)
-            String conversationId,
+    public ResponseEntity<AddressResponse> createAddress(
+            @RequestHeader(value = "x-conversation-id", required = false) String conversationId,
             @PathVariable Long customerId,
             @Valid @RequestBody AddressRequest request)
-             {
+            throws CustomerNotFound {
 
-        CustomerResponse response =
+        AddressResponse response =
                 customerService.createAddress(customerId, request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
+
+
     @Operation(
             summary = "Update Address",
             description = "Updates address details. Ensures only one default address"
@@ -114,19 +117,19 @@ public class CustomerController {
             @ApiResponse(responseCode = "404", description = "Address/Customer not found")
     })
     @PutMapping("/{customerId}/address/{addressId}")
-    public ResponseEntity<CustomerResponse> updateAddress(
-            @RequestHeader(value = "x-conversation-id", required = false)
-            String conversationId,
+    public ResponseEntity<AddressResponse> updateAddress(
+            @RequestHeader(value = "x-conversation-id", required = false) String conversationId,
             @PathVariable Long customerId,
             @PathVariable Long addressId,
             @Valid @RequestBody AddressRequest request)
-             {
+            throws CustomerNotFound, AddressNotFoundException {
 
-        CustomerResponse response =
+        AddressResponse response =
                 customerService.updateAddress(customerId, addressId, request);
 
         return ResponseEntity.ok(response);
     }
+
     @Operation(
             summary = "Delete Address",
             description = "Deletes an address. Cannot delete default address unless another exists"
@@ -136,18 +139,15 @@ public class CustomerController {
             @ApiResponse(responseCode = "400", description = "Invalid operation"),
             @ApiResponse(responseCode = "404", description = "Address not found")
     })
+
     @DeleteMapping("/{customerId}/address/{addressId}")
-    public ResponseEntity<CustomerResponse> deleteAddress(
-            @RequestHeader(value = "x-conversation-id", required = false)
-            String conversationId,
+    public ResponseEntity<Void> deleteAddress(
+            @RequestHeader(value = "x-conversation-id", required = false) String conversationId,
             @PathVariable Long customerId,
-            @PathVariable Long addressId)
-            {
+            @PathVariable Long addressId) {
 
-        CustomerResponse response =
-                customerService.deleteAddress(customerId, addressId);
-
-        return ResponseEntity.ok(response);
+        customerService.deleteAddress(customerId, addressId);
+        return ResponseEntity.noContent().build();
     }
     @Operation(
             summary = "Get Customer",
@@ -159,13 +159,23 @@ public class CustomerController {
     })
     @GetMapping("/{customerId}")
     public ResponseEntity<CustomerResponse> getCustomer(
-            @RequestHeader(value = "x-conversation-id", required = false)
-            String conversationId,
-            @PathVariable Long customerId)
-             {
-                 System.out.println("Conversation ID: " + conversationId);
+            @RequestHeader(value = "x-conversation-id", required = false) String conversationId,
+            @PathVariable Long customerId) {
+
+        System.out.println("Conversation ID: " + conversationId);
+
         return ResponseEntity.ok(
                 customerService.getCustomer(customerId)
         );
     }
-}
+    @PatchMapping("/{customerId}/addresses/{addressId}/default")
+    public ResponseEntity<AddressResponse> setDefault(
+            @PathVariable long customerId,
+            @PathVariable long addressId) {
+
+        return ResponseEntity.ok(
+                customerService.setDefaultAddress(customerId, addressId)
+        );
+    }
+    }
+

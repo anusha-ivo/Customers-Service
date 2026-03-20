@@ -1,18 +1,15 @@
-package com.ordermanagement.customer.dto;
+package com.ordermanagement.customer.entity;
 
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.List;
-@Data
-public class CustomerResponse {
-    private Long customerId;  // changed to Long
 
+@Data
+public class Customer {
+    private Long id;
     private String name;
     private String email;
     private String phone;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
-    private List<AddressResponse> addresses;
 }

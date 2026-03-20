@@ -1,8 +1,7 @@
 package com.ordermanagement.customer.repository;
 
 import com.ordermanagement.customer.config.SqlQueryProvider;
-import com.ordermanagement.customer.dto.CustomerResponse;
-import org.springframework.beans.factory.annotation.Value;
+import com.ordermanagement.customer.entity.Customer;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
@@ -22,7 +21,7 @@ public class CustomerRepository {
         this.sqlQueryProvider=sqlQueryProvider;
     }
 
-    public long insertCustomer(String name, String email, String phone) {
+    public long insertCustomer(Customer customer) {
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
          String insertQuery=sqlQueryProvider.getQuery("customer.insert");
@@ -31,9 +30,9 @@ public class CustomerRepository {
                 con -> {
                     PreparedStatement ps =
                             con.prepareStatement(insertQuery, new String[]{"customer_id"});
-                    ps.setString(1, name);
-                    ps.setString(2, email);
-                    ps.setString(3, phone);
+                    ps.setString(1, customer.getName());
+                    ps.setString(2, customer.getEmail());
+                    ps.setString(3, customer.getPhone());
                     return ps;
                 },
                 keyHolder
@@ -46,20 +45,26 @@ public class CustomerRepository {
         if (phone == null || phone.isBlank()) {
             return false;
         }
-        String existsPhoneQuery = sqlQueryProvider.getQuery("customer.exists-phone");
+        String existsPhoneQuery = sqlQueryProvider.getQuery("customer.existsByPhone");
         Integer count = jdbcTemplate.queryForObject(existsPhoneQuery, Integer.class, phone);
         return count != null && count > 0;
     }
 
     public boolean existsByEmail(String email) {
-        String existsEmailQuery = sqlQueryProvider.getQuery("customer.exists-email");
+        String existsEmailQuery = sqlQueryProvider.getQuery("customer.existsByEmail");
         Integer count = jdbcTemplate.queryForObject(existsEmailQuery, Integer.class, email);
         return count != null && count > 0;
     }
 
-    public void updateCustomer(long customerId, String name, String email, String phone) {
+    public void updateCustomer(Customer customer){
         String updateQuery = sqlQueryProvider.getQuery("customer.update");
-        jdbcTemplate.update(updateQuery, name, email, phone, customerId);
+        jdbcTemplate.update(
+                updateQuery,
+                customer.getName(),
+                customer.getEmail(),
+                customer.getPhone(),
+                customer.getId()
+        );
     }
 
     public void deleteCustomer(long customerId) {
@@ -68,14 +73,14 @@ public class CustomerRepository {
     }
 
     public boolean existsByEmailForOtherCustomer(String email, long customerId) {
-        String existsEmailOtherQuery= sqlQueryProvider.getQuery("customer.exists-email-other");
+        String existsEmailOtherQuery= sqlQueryProvider.getQuery("customer.existsByEmailForOther");
 
         Integer count = jdbcTemplate.queryForObject(existsEmailOtherQuery, Integer.class, email, customerId);
         return count != null && count > 0;
     }
 
     public boolean existsByPhoneForOtherCustomer(String phone, long customerId) {
-        String existsPhoneOtherQuery= sqlQueryProvider.getQuery("customer.exists-phone-other");
+        String existsPhoneOtherQuery= sqlQueryProvider.getQuery("customer.existsByPhoneForOther");
         if (phone == null || phone.isBlank()) {
             return false;
         }
@@ -83,7 +88,7 @@ public class CustomerRepository {
         return count != null && count > 0;
     }
     public boolean existsById(long customerId) {
-        String  existsIdQuery = sqlQueryProvider.getQuery("customer.exists-id");
+        String  existsIdQuery = sqlQueryProvider.getQuery("customer.existsById");
         Integer count = jdbcTemplate.queryForObject(
                 existsIdQuery,
                 Integer.class,
@@ -93,16 +98,16 @@ public class CustomerRepository {
     }
 
 
-    public CustomerResponse findById(long customerId) {
-        String  findByIdQuery = sqlQueryProvider.getQuery("customer.find-by-id");
+    public Customer findById(long customerId) {
+        String  findByIdQuery = sqlQueryProvider.getQuery("customer.findById");
 
         return jdbcTemplate.queryForObject(
                 findByIdQuery,
                 (rs, rowNum) -> {
 
-                    CustomerResponse c = new CustomerResponse();
+                    Customer c = new Customer();
 
-                    c.setCustomerId(rs.getLong("customer_id"));
+                    c.setId(rs.getLong("customer_id"));
                     c.setName(rs.getString("name"));
                     c.setEmail(rs.getString("email"));
                     c.setPhone(rs.getString("phone"));

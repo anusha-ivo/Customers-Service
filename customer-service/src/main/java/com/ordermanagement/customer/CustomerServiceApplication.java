@@ -6,7 +6,7 @@ import org.springframework.context.annotation.PropertySource;
 
 @SpringBootApplication
 
-
+@PropertySource("classpath:sql.properties")//through prop file
 public class
 
 CustomerServiceApplication {

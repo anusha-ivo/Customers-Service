@@ -2,12 +2,12 @@ package com.ordermanagement.customer.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-public class CustomerException extends RuntimeException {
+public class AppException extends RuntimeException {//specific name
 
     private final HttpStatus status;
     private final String label;
 
-    public CustomerException(String message, HttpStatus status, String label) {
+    public AppException(String message, HttpStatus status, String label) {
         super(message);
         this.status = status;
         this.label = label;

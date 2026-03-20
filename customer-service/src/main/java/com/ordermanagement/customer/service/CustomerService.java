@@ -4,13 +4,16 @@ import com.ordermanagement.customer.dto.AddressRequest;
 import com.ordermanagement.customer.dto.AddressResponse;
 import com.ordermanagement.customer.dto.CustomerRequest;
 import com.ordermanagement.customer.dto.CustomerResponse;
-import com.ordermanagement.customer.exceptions.CustomerException;
+import com.ordermanagement.customer.entity.Address;
+import com.ordermanagement.customer.entity.Customer;
+import com.ordermanagement.customer.exceptions.*;
 import com.ordermanagement.customer.repository.AddressRepository;
 import com.ordermanagement.customer.repository.CustomerRepository;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 import java.util.List;
 
@@ -30,14 +33,14 @@ public class CustomerService {
     public CustomerResponse createCustomer(CustomerRequest request)  {
 
         if (customerRepository.existsByEmail(request.getEmail())) {
-            throw new CustomerException("Email already exists", HttpStatus.CONFLICT, "DUPLICATE_EMAIL");
+            throw new DuplicateResourceException("Email already exists");
         }
 
         if (customerRepository.existsByPhone(request.getPhone())) {
-            throw new CustomerException("Phone already exists", HttpStatus.CONFLICT, "DUPLICATE_PHONE");
+            throw new DuplicateResourceException("Phone already exists");
         }
         if (request.getAddress() == null || request.getAddress().isEmpty()) {
-            throw new CustomerException("At least one address is required for a Customer ", HttpStatus.BAD_REQUEST, "ADDRESS_REQUIRED");
+            throw new InvalidOperationException("At least one address is required");
         }
         long defaultCount = request.getAddress()
                 .stream()
@@ -45,83 +48,106 @@ public class CustomerService {
                 .count();
 
         if (defaultCount != 1) {
-            throw new CustomerException("Exactly one default address required", HttpStatus.BAD_REQUEST, "INVALID_DEFAULT_ADDRESS");
+            throw new InvalidOperationException(
+                    "Exactly one default address required"
+            );
+
         }
 
-        long customerId = customerRepository.insertCustomer(
-                request.getName(),
-                request.getEmail(),
-                request.getPhone()
-        );
+        Customer customer = new Customer();
+        customer.setName(request.getName());
+        customer.setEmail(request.getEmail());
+        customer.setPhone(request.getPhone());
+
+        long customerId = customerRepository.insertCustomer(customer);
 
         for (AddressRequest addressRequest : request.getAddress()) {
-            addressRepository.insertAddress(customerId, addressRequest);
+            Address address = new Address();
+            address.setCustomerId(customerId);
+            address.setLabel(addressRequest.getLabel());
+            address.setLine1(addressRequest.getLine1());
+            address.setLine2(addressRequest.getLine2());
+            address.setCity(addressRequest.getCity());
+            address.setState(addressRequest.getState());
+            address.setCountry(addressRequest.getCountry());
+            address.setPostalCode(addressRequest.getPostalCode());
+            address.setIsDefault(addressRequest.getIsDefault());
+
+            addressRepository.insertAddress(address);
         }
 
-        return getCustomer(customerId);
+        CustomerResponse response = new CustomerResponse();
+        response.setCustomerId(customerId);
+        response.setName(customer.getName());
+        response.setEmail(customer.getEmail());
+        response.setPhone(customer.getPhone());
+
+
+        List<AddressResponse> addresses = request.getAddress().stream().map(a -> {
+            AddressResponse res = new AddressResponse();
+            res.setLabel(a.getLabel());
+            res.setLine1(a.getLine1());
+            res.setLine2(a.getLine2());
+            res.setCity(a.getCity());
+            res.setState(a.getState());
+            res.setCountry(a.getCountry());
+            res.setPostalCode(a.getPostalCode());
+            res.setIsDefault(a.getIsDefault());
+            return res;
+        }).toList();
+
+        response.setAddresses(addresses);
+
+        return response;
     }
 
     @Transactional
-    public CustomerResponse deleteCustomer(long customerId)
-            {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCustomer(long customerId)
+            throws CustomerNotFound {
 
         validateCustomerExists(customerId);
 
-        CustomerResponse response = getCustomer(customerId);//only one
-
         customerRepository.deleteCustomer(customerId);
-
-        return response;//no content in ,no content or successfulyy dlteddd
     }
 
     @Transactional
     public CustomerResponse updateCustomer(long customerId,
                                            CustomerRequest request)
-            {
+            throws CustomerNotFound, DuplicateResourceException {
 
+        validateCustomerExists(customerId);
+        Customer existingCustomer = customerRepository.findById(customerId);
 
-        CustomerResponse existingCustomer = customerRepository.findById(customerId);
-                if (existingCustomer == null) {
-                    throw new CustomerException(
-                            "Customer not found with id " + customerId,
-                            HttpStatus.NOT_FOUND,
-                            "CUSTOMER_NOT_FOUND"
-                    );
-                }
-
-                String email = request.getEmail().trim().toLowerCase();
         if (!existingCustomer.getEmail().equals(request.getEmail()) &&
                 customerRepository.existsByEmailForOtherCustomer(
-                        request.getEmail(), customerId)) {//dlt this
+                        request.getEmail(), customerId)) {
 
-            throw new CustomerException("Email already exists", HttpStatus.CONFLICT, "DUPLICATE_EMAIL");
+            throw new DuplicateResourceException("Email already exists");
         }
 
-                if (!existingCustomer.getEmail().trim().equalsIgnoreCase(request.getEmail().trim()) &&
-                        customerRepository.existsByEmailForOtherCustomer(
-                                request.getEmail().trim(), customerId)) {
+        if (!existingCustomer.getPhone().equals(request.getPhone()) &&
+                customerRepository.existsByPhoneForOtherCustomer(
+                        request.getPhone(), customerId)) {
 
-                    throw new CustomerException(
-                            "Email already exists",
-                            HttpStatus.CONFLICT,
-                            "DUPLICATE_EMAIL"
-                    );
-                }
+            throw new DuplicateResourceException("Phone already exists");
+        }
 
-        customerRepository.updateCustomer(
-                customerId,
-                request.getName(),
-                request.getEmail(),
-                request.getPhone()
-        );
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        customer.setName(request.getName());
+        customer.setEmail(request.getEmail());
+        customer.setPhone(request.getPhone());
+
+        customerRepository.updateCustomer(customer);
 
         return getCustomer(customerId);
     }
 
     @Transactional
-    public CustomerResponse createAddress(long customerId,
-                                          AddressRequest request)
-             {
+    public AddressResponse createAddress(long customerId,
+                                         AddressRequest request)
+            throws CustomerNotFound {
 
         validateCustomerExists(customerId);
 
@@ -129,16 +155,38 @@ public class CustomerService {
             addressRepository.unsetDefaultAddress(customerId);
         }
 
-        addressRepository.insertAddress(customerId, request);
+        Address address = new Address();
+        address.setCustomerId(customerId);
+        address.setLabel(request.getLabel());
+        address.setLine1(request.getLine1());
+        address.setLine2(request.getLine2());
+        address.setCity(request.getCity());
+        address.setState(request.getState());
+        address.setCountry(request.getCountry());
+        address.setPostalCode(request.getPostalCode());
+        address.setIsDefault(request.getIsDefault());
 
-        return getCustomer(customerId);//return only address
+        long addressId = addressRepository.insertAddress(address);
+
+        AddressResponse response = new AddressResponse();
+        response.setAddressId(addressId);
+        response.setLabel(request.getLabel());
+        response.setLine1(request.getLine1());
+        response.setLine2(request.getLine2());
+        response.setCity(request.getCity());
+        response.setState(request.getState());
+        response.setCountry(request.getCountry());
+        response.setPostalCode(request.getPostalCode());
+        response.setIsDefault(request.getIsDefault());
+
+        return response;
     }
 
     @Transactional
-    public CustomerResponse updateAddress(long customerId,
+    public AddressResponse updateAddress(long customerId,
                                           long addressId,
                                           AddressRequest request)
-            {
+            throws CustomerNotFound, AddressNotFoundException {
 
         validateCustomerExists(customerId);
         validateAddressExists(customerId, addressId);
@@ -147,15 +195,37 @@ public class CustomerService {
             addressRepository.unsetDefaultAddress(customerId);
         }
 
-        addressRepository.updateAddress(addressId, customerId, request);
+        Address address = new Address();
+        address.setId(addressId);
+        address.setCustomerId(customerId);
+        address.setLabel(request.getLabel());
+        address.setLine1(request.getLine1());
+        address.setLine2(request.getLine2());
+        address.setCity(request.getCity());
+        address.setState(request.getState());
+        address.setCountry(request.getCountry());
+        address.setPostalCode(request.getPostalCode());
+        address.setIsDefault(request.getIsDefault());
 
-        return getCustomer(customerId);
+        addressRepository.updateAddress(address);
+
+        AddressResponse response = new AddressResponse();
+        response.setAddressId(addressId);
+        response.setLabel(request.getLabel());
+        response.setLine1(request.getLine1());
+        response.setLine2(request.getLine2());
+        response.setCity(request.getCity());
+        response.setState(request.getState());
+        response.setCountry(request.getCountry());
+        response.setPostalCode(request.getPostalCode());
+        response.setIsDefault(request.getIsDefault());
+        return response;
     }
 
     @Transactional
-    public CustomerResponse deleteAddress(long customerId,
-                                          long addressId)
-             {
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAddress(long customerId, long addressId)
+            throws CustomerNotFound, AddressNotFoundException {
 
         validateCustomerExists(customerId);
         validateAddressExists(customerId, addressId);
@@ -163,64 +233,93 @@ public class CustomerService {
         if (addressRepository.isDefaultAddress(addressId)) {
             long total = addressRepository.countAddresses(customerId);
             if (total <= 1) {
-                throw new CustomerException(
-                        "Cannot delete default address without another default",
-                        HttpStatus.BAD_REQUEST,
-                        "INVALID_DELETE_DEFAULT_ADDRESS"
+                throw new InvalidOperationException(
+                        "Cannot delete default address without another default"
                 );
             }
         }
 
         addressRepository.deleteAddress(addressId);
-
-        return getCustomer(customerId);
     }
 
     @Transactional(readOnly = true)
     public CustomerResponse getCustomer(long customerId)
-             {
+            throws CustomerNotFound {
 
+        validateCustomerExists(customerId);
 
+        Customer customer = customerRepository.findById(customerId);
 
-        CustomerResponse customer = customerRepository.findById(customerId);
-
-                 if (customer == null) {
-                     throw new CustomerException(
-                             "Customer not found with id " + customerId,
-                             HttpStatus.NOT_FOUND,
-                             "CUSTOMER_NOT_FOUND"
-                     );
-                 }
-        List<AddressResponse> addresses =
+        List<Address> address =
                 addressRepository.findByCustomerId(customerId);
+        List<AddressResponse> addresses = address.stream().map(a -> {
+            AddressResponse res = new AddressResponse();
+            res.setAddressId(a.getId());
+            res.setLabel(a.getLabel());
+            res.setLine1(a.getLine1());
+            res.setLine2(a.getLine2());
+            res.setCity(a.getCity());
+            res.setState(a.getState());
+            res.setCountry(a.getCountry());
+            res.setPostalCode(a.getPostalCode());
+            res.setIsDefault(a.getIsDefault());
+            return res;
+        }).toList();
 
-        customer.setAddresses(addresses);
 
-        return customer;
+        CustomerResponse response = new CustomerResponse();
+        response.setCustomerId(customer.getId());
+        response.setName(customer.getName());
+        response.setEmail(customer.getEmail());
+        response.setPhone(customer.getPhone());
+        response.setCreatedAt(customer.getCreatedAt());
+        response.setUpdatedAt(customer.getUpdatedAt());
+        response.setAddresses(addresses);
+
+        return response;
     }
+    @Transactional
+    public AddressResponse setDefaultAddress(long customerId, long addressId)
+            throws CustomerNotFound, AddressNotFoundException {
 
+        validateCustomerExists(customerId);
+        validateAddressExists(customerId, addressId);
+
+
+        addressRepository.unsetDefaultAddress(customerId);
+
+
+        addressRepository.markAsDefault(addressId);
+
+        Address address = addressRepository.findAddressById(addressId);
+
+        AddressResponse response = new AddressResponse();
+        response.setAddressId(address.getId());
+        response.setLabel(address.getLabel());
+        response.setLine1(address.getLine1());
+        response.setLine2(address.getLine2());
+        response.setCity(address.getCity());
+        response.setState(address.getState());
+        response.setCountry(address.getCountry());
+        response.setPostalCode(address.getPostalCode());
+        response.setIsDefault(true);
+
+        return response;
+    }
     private void validateCustomerExists(long customerId)
-            {
+            throws CustomerNotFound {
 
         if (!customerRepository.existsById(customerId)) {
-            throw new CustomerException(
-                    "Customer not found with id " + customerId,
-                    HttpStatus.NOT_FOUND,
-                    "CUSTOMER_NOT_FOUND"
-            );
+            throw new CustomerNotFound(customerId);
         }
     }
 
     private void validateAddressExists(long customerId,
                                        long addressId)
-             {
+            throws AddressNotFoundException {
 
         if (!addressRepository.existsByIdAndCustomerId(addressId, customerId)) {
-            throw new CustomerException(
-                    "Address not found with id " + addressId,
-                    HttpStatus.NOT_FOUND,
-                    "ADDRESS_NOT_FOUND"
-            );
+            throw new AddressNotFoundException(addressId);
         }
     }
 }
