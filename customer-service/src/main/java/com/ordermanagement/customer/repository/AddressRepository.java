@@ -21,7 +21,7 @@ public class AddressRepository {
     public long insertAddress(Address address){
         String   insertQuery = sqlQueryProvider.getQuery("address.insert");
 
-        jdbcTemplate.update(
+        jdbcTemplate.update(//update only for insertion
                 insertQuery,
                 address.getCustomerId(),
                 address.getLabel(),

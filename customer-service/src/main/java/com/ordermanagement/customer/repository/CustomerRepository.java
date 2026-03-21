@@ -107,7 +107,7 @@ public class CustomerRepository {
                 findByIdQuery,
                 (rs, rowNum) -> {
 
-                    Customer c = new Customer();
+                    Customer c = new Customer();// db->objevt
 
                     c.setId(rs.getLong("customer_id"));
                     c.setName(rs.getString("name"));

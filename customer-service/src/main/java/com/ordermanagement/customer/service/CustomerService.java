@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 import java.util.List;
 
+import static java.util.stream.Collectors.toList;
+
 @Service
 public class CustomerService {
 
@@ -68,10 +70,7 @@ public class CustomerService {
 
         }
 
-        Customer customer = new Customer();
-        customer.setName(request.getName());
-        customer.setEmail(request.getEmail());
-        customer.setPhone(request.getPhone());
+        Customer customer = toCustomer(request, null);//dto->entity,convert req to db object
 
         long customerId = customerRepository.insertCustomer(customer);
 
@@ -90,7 +89,7 @@ public class CustomerService {
             addressRepository.insertAddress(address);
         }
 
-        CustomerResponse response = new CustomerResponse();
+        CustomerResponse response = new CustomerResponse();//api response object
         response.setCustomerId(customerId);
         response.setName(customer.getName());
         response.setEmail(customer.getEmail());
@@ -98,15 +97,7 @@ public class CustomerService {
 
 
         List<AddressResponse> addresses = request.getAddress().stream().map(a -> {
-            AddressResponse res = new AddressResponse();
-            res.setLabel(a.getLabel());
-            res.setLine1(a.getLine1());
-            res.setLine2(a.getLine2());
-            res.setCity(a.getCity());
-            res.setState(a.getState());
-            res.setCountry(a.getCountry());
-            res.setPostalCode(a.getPostalCode());
-            res.setIsDefault(a.getIsDefault());
+            AddressResponse res = toAddressResponse(a,null);
             return res;
         }).toList();
 
@@ -168,13 +159,10 @@ public class CustomerService {
             );
         }
 
-        Customer customer = new Customer();
-        customer.setId(customerId);
-        customer.setName(request.getName());
-        customer.setEmail(request.getEmail());
-        customer.setPhone(request.getPhone());
+        //convert  dto here entity
+              Customer customer = toCustomer(request, customerId);
 
-        customerRepository.updateCustomer(customer);
+             customerRepository.updateCustomer(customer);
 
         return getCustomer(customerId);
     }
@@ -190,29 +178,22 @@ public class CustomerService {
             addressRepository.unsetDefaultAddress(customerId);
         }
 
-        Address address = new Address();
-        address.setCustomerId(customerId);
-        address.setLabel(request.getLabel());
-        address.setLine1(request.getLine1());
-        address.setLine2(request.getLine2());
-        address.setCity(request.getCity());
-        address.setState(request.getState());
-        address.setCountry(request.getCountry());
-        address.setPostalCode(request.getPostalCode());
-        address.setIsDefault(request.getIsDefault());
+                 Address address = new Address();//creating entity to store in db
+                 address.setCustomerId(customerId);
 
-        long addressId = addressRepository.insertAddress(address);
+                 address.setLabel(request.getLabel());
+                 address.setLine1(request.getLine1());
+                 address.setLine2(request.getLine2());
+                 address.setCity(request.getCity());
+                 address.setState(request.getState());
+                 address.setCountry(request.getCountry());
+                 address.setPostalCode(request.getPostalCode());
+                 address.setIsDefault(request.getIsDefault());
 
-        AddressResponse response = new AddressResponse();
-        response.setAddressId(addressId);
-        response.setLabel(request.getLabel());
-        response.setLine1(request.getLine1());
-        response.setLine2(request.getLine2());
-        response.setCity(request.getCity());
-        response.setState(request.getState());
-        response.setCountry(request.getCountry());
-        response.setPostalCode(request.getPostalCode());
-        response.setIsDefault(request.getIsDefault());
+                 long addressId = addressRepository.insertAddress(address);
+
+
+        AddressResponse response = toAddressResponse(request, addressId);
 
         return response;
     }
@@ -226,34 +207,26 @@ public class CustomerService {
         validateCustomerExists(customerId);
         validateAddressExists(customerId, addressId);
 
-        if (Boolean.TRUE.equals(request.getIsDefault())) {
+        if (Boolean.TRUE.equals(request.getIsDefault())) {//new address mark as default n then remove existing one as default
             addressRepository.unsetDefaultAddress(customerId);
         }
 
         Address address = new Address();
-        address.setId(addressId);
-        address.setCustomerId(customerId);
-        address.setLabel(request.getLabel());
-        address.setLine1(request.getLine1());
-        address.setLine2(request.getLine2());
-        address.setCity(request.getCity());
-        address.setState(request.getState());
-        address.setCountry(request.getCountry());
-        address.setPostalCode(request.getPostalCode());
-        address.setIsDefault(request.getIsDefault());
+
+                address.setId(addressId);
+                address.setCustomerId(customerId);
+                address.setLabel(request.getLabel());
+                address.setLine1(request.getLine1());
+                address.setLine2(request.getLine2());
+                address.setCity(request.getCity());
+                address.setState(request.getState());
+                address.setCountry(request.getCountry());
+                address.setPostalCode(request.getPostalCode());
+                address.setIsDefault(request.getIsDefault());
 
         addressRepository.updateAddress(address);
 
-        AddressResponse response = new AddressResponse();
-        response.setAddressId(addressId);
-        response.setLabel(request.getLabel());
-        response.setLine1(request.getLine1());
-        response.setLine2(request.getLine2());
-        response.setCity(request.getCity());
-        response.setState(request.getState());
-        response.setCountry(request.getCountry());
-        response.setPostalCode(request.getPostalCode());
-        response.setIsDefault(request.getIsDefault());
+                AddressResponse response = toAddressResponse(request, addressId);
         return response;
     }
 
@@ -262,8 +235,8 @@ public class CustomerService {
     public void deleteAddress(long customerId, long addressId)
              {
 
-        validateCustomerExists(customerId);
-        validateAddressExists(customerId, addressId);
+        //validateCustomerExists(customerId);
+        validateAddressExists(customerId, addressId);//check address belong to perticular customer
 
         if (addressRepository.isDefaultAddress(addressId)) {
             long total = addressRepository.countAddresses(customerId);
@@ -283,25 +256,20 @@ public class CustomerService {
     public CustomerResponse getCustomer(long customerId)
              {
 
-        validateCustomerExists(customerId);
 
         Customer customer = customerRepository.findById(customerId);
-
+                 if (customer == null) {
+                     throw new CustomerException(
+                             "Customer not found",
+                             HttpStatus.NOT_FOUND,
+                             "CUSTOMER_NOT_FOUND"
+                     );
+                 }
         List<Address> address =
                 addressRepository.findByCustomerId(customerId);
-        List<AddressResponse> addresses = address.stream().map(a -> {
-            AddressResponse res = new AddressResponse();
-            res.setAddressId(a.getId());
-            res.setLabel(a.getLabel());
-            res.setLine1(a.getLine1());
-            res.setLine2(a.getLine2());
-            res.setCity(a.getCity());
-            res.setState(a.getState());
-            res.setCountry(a.getCountry());
-            res.setPostalCode(a.getPostalCode());
-            res.setIsDefault(a.getIsDefault());
-            return res;
-        }).toList();
+                 List<AddressResponse> addresses = address.stream()
+                         .map(a -> toAddressResponse(a))
+                         .toList();
 
 
         CustomerResponse response = new CustomerResponse();
@@ -319,7 +287,6 @@ public class CustomerService {
     public AddressResponse setDefaultAddress(long customerId, long addressId)
             {
 
-        validateCustomerExists(customerId);
         validateAddressExists(customerId, addressId);
 
 
@@ -328,20 +295,13 @@ public class CustomerService {
 
         addressRepository.markAsDefault(addressId);
 
-        Address address = addressRepository.findAddressById(addressId);
+       // Address address = addressRepository.findAddressById(addressId);
 
-        AddressResponse response = new AddressResponse();
-        response.setAddressId(address.getId());
-        response.setLabel(address.getLabel());
-        response.setLine1(address.getLine1());
-        response.setLine2(address.getLine2());
-        response.setCity(address.getCity());
-        response.setState(address.getState());
-        response.setCountry(address.getCountry());
-        response.setPostalCode(address.getPostalCode());
-        response.setIsDefault(true);
+                Address address = addressRepository.findAddressById(addressId);
+                AddressResponse response = toAddressResponse(address);
+                response.setIsDefault(true);
 
-        return response;
+                return response;
     }
     private void validateCustomerExists(long customerId)
              {
@@ -366,5 +326,41 @@ public class CustomerService {
                     "ADDRESS_NOT_FOUND"
             );
         }
+    }
+    private Customer toCustomer(CustomerRequest request, Long id) {
+        Customer customer = new Customer();
+        if (id != null) customer.setId(id);
+        customer.setName(request.getName());
+        customer.setEmail(request.getEmail());
+        customer.setPhone(request.getPhone());
+        return customer;
+    }
+
+    private AddressResponse toAddressResponse(Address address) {
+        AddressResponse res = new AddressResponse();
+        res.setAddressId(address.getId());
+        res.setLabel(address.getLabel());
+        res.setLine1(address.getLine1());
+        res.setLine2(address.getLine2());
+        res.setCity(address.getCity());
+        res.setState(address.getState());
+        res.setCountry(address.getCountry());
+        res.setPostalCode(address.getPostalCode());
+        res.setIsDefault(address.getIsDefault());
+        return res;
+    }
+
+    private AddressResponse toAddressResponse(AddressRequest request, Long addressId) {
+        AddressResponse res = new AddressResponse();
+        res.setAddressId(addressId);
+        res.setLabel(request.getLabel());
+        res.setLine1(request.getLine1());
+        res.setLine2(request.getLine2());
+        res.setCity(request.getCity());
+        res.setState(request.getState());
+        res.setCountry(request.getCountry());
+        res.setPostalCode(request.getPostalCode());
+        res.setIsDefault(request.getIsDefault());
+        return res;
     }
 }
