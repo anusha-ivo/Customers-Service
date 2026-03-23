@@ -22,11 +22,6 @@ public class CustomerResponse {
     @Schema(description = "Phone number of the customer", example = "9876543210")
     private String phone;
 
-    @Schema(description = "Timestamp when the customer was created", example = "2026-03-21T10:15:30")
-    private LocalDateTime createdAt;
-
-    @Schema(description = "Timestamp when the customer was last updated", example = "2026-03-21T12:20:45")
-    private LocalDateTime updatedAt;
 
     @Schema(
             description = "List of addresses associated with the customer",

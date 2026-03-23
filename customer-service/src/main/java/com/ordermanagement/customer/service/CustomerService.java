@@ -257,8 +257,7 @@ public class CustomerService {
         response.setName(customer.getName());
         response.setEmail(customer.getEmail());
         response.setPhone(customer.getPhone());
-        response.setCreatedAt(customer.getCreatedAt());
-        response.setUpdatedAt(customer.getUpdatedAt());
+
         response.setAddresses(addresses);
 
         return response;
