@@ -70,7 +70,7 @@ public class CustomerService {
 
         }
 
-        Customer customer = toCustomer(request, null);//dto->entity,convert req to db object
+        Customer customer = mapToCustomerEntity(request, null);//dto->entity,convert req to db object
 
         long customerId = customerRepository.insertCustomer(customer);
 
@@ -97,7 +97,7 @@ public class CustomerService {
 
 
         List<AddressResponse> addresses = request.getAddress().stream().map(a -> {
-            AddressResponse res = toAddressResponse(a,null);
+            AddressResponse res = mapToAddressResponse(a,null);
             return res;
         }).toList();
 
@@ -160,7 +160,7 @@ public class CustomerService {
         }
 
         //convert  dto here entity
-              Customer customer = toCustomer(request, customerId);
+              Customer customer = mapToCustomerEntity(request, customerId);
 
              customerRepository.updateCustomer(customer);
 
@@ -178,22 +178,13 @@ public class CustomerService {
             addressRepository.unsetDefaultAddress(customerId);
         }
 
-                 Address address = new Address();//creating entity to store in db
-                 address.setCustomerId(customerId);
+                 Address address = mapToNewAddressEntity(request,customerId);//creating entity to store in db
 
-                 address.setLabel(request.getLabel());
-                 address.setLine1(request.getLine1());
-                 address.setLine2(request.getLine2());
-                 address.setCity(request.getCity());
-                 address.setState(request.getState());
-                 address.setCountry(request.getCountry());
-                 address.setPostalCode(request.getPostalCode());
-                 address.setIsDefault(request.getIsDefault());
 
                  long addressId = addressRepository.insertAddress(address);
 
 
-        AddressResponse response = toAddressResponse(request, addressId);
+        AddressResponse response = mapToAddressResponse(request, addressId);
 
         return response;
     }
@@ -211,22 +202,11 @@ public class CustomerService {
             addressRepository.unsetDefaultAddress(customerId);
         }
 
-        Address address = new Address();
-
-                address.setId(addressId);
-                address.setCustomerId(customerId);
-                address.setLabel(request.getLabel());
-                address.setLine1(request.getLine1());
-                address.setLine2(request.getLine2());
-                address.setCity(request.getCity());
-                address.setState(request.getState());
-                address.setCountry(request.getCountry());
-                address.setPostalCode(request.getPostalCode());
-                address.setIsDefault(request.getIsDefault());
+                Address address = mapToExistingAddressEntity(request, customerId, addressId);
 
         addressRepository.updateAddress(address);
 
-                AddressResponse response = toAddressResponse(request, addressId);
+                AddressResponse response = mapToAddressResponse(request, addressId);
         return response;
     }
 
@@ -268,11 +248,11 @@ public class CustomerService {
         List<Address> address =
                 addressRepository.findByCustomerId(customerId);
                  List<AddressResponse> addresses = address.stream()
-                         .map(a -> toAddressResponse(a))
+                         .map(a -> mapToAddressResponse(a))
                          .toList();
 
 
-        CustomerResponse response = new CustomerResponse();
+        CustomerResponse response = new CustomerResponse();//create mtd to convert response
         response.setCustomerId(customer.getId());
         response.setName(customer.getName());
         response.setEmail(customer.getEmail());
@@ -298,7 +278,7 @@ public class CustomerService {
        // Address address = addressRepository.findAddressById(addressId);
 
                 Address address = addressRepository.findAddressById(addressId);
-                AddressResponse response = toAddressResponse(address);
+                AddressResponse response = mapToAddressResponse(address);
                 response.setIsDefault(true);
 
                 return response;
@@ -327,7 +307,7 @@ public class CustomerService {
             );
         }
     }
-    private Customer toCustomer(CustomerRequest request, Long id) {
+    private Customer mapToCustomerEntity(CustomerRequest request, Long id) {//remove id,n rename method
         Customer customer = new Customer();
         if (id != null) customer.setId(id);
         customer.setName(request.getName());
@@ -336,7 +316,7 @@ public class CustomerService {
         return customer;
     }
 
-    private AddressResponse toAddressResponse(Address address) {
+    private AddressResponse mapToAddressResponse(Address address) {
         AddressResponse res = new AddressResponse();
         res.setAddressId(address.getId());
         res.setLabel(address.getLabel());
@@ -350,7 +330,7 @@ public class CustomerService {
         return res;
     }
 
-    private AddressResponse toAddressResponse(AddressRequest request, Long addressId) {
+    private AddressResponse mapToAddressResponse(AddressRequest request, Long addressId) {
         AddressResponse res = new AddressResponse();
         res.setAddressId(addressId);
         res.setLabel(request.getLabel());
@@ -362,5 +342,37 @@ public class CustomerService {
         res.setPostalCode(request.getPostalCode());
         res.setIsDefault(request.getIsDefault());
         return res;
+    }
+
+    private Address mapToNewAddressEntity(AddressRequest request, Long customerId) {
+        Address address = new Address();
+
+        address.setCustomerId(customerId);
+        address.setLabel(request.getLabel());
+        address.setLine1(request.getLine1());
+        address.setLine2(request.getLine2());
+        address.setCity(request.getCity());
+        address.setState(request.getState());
+        address.setCountry(request.getCountry());
+        address.setPostalCode(request.getPostalCode());
+        address.setIsDefault(request.getIsDefault());
+
+        return address;
+    }
+    private Address mapToExistingAddressEntity(AddressRequest request, Long customerId, Long addressId) {
+        Address address = new Address();
+
+        address.setId(addressId);
+        address.setCustomerId(customerId);
+        address.setLabel(request.getLabel());
+        address.setLine1(request.getLine1());
+        address.setLine2(request.getLine2());
+        address.setCity(request.getCity());
+        address.setState(request.getState());
+        address.setCountry(request.getCountry());
+        address.setPostalCode(request.getPostalCode());
+        address.setIsDefault(request.getIsDefault());
+
+        return address;
     }
 }
